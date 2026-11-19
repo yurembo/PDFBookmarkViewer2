@@ -1,0 +1,33 @@
+# Build output
+build/
+Debug/
+Release/
+scripts/
+*.user
+*.vspscc
+*.suo
+*.cache
+*.ilk
+*.obj
+*.pdb
+*.exp
+
+# CMake
+CMakeCache.txt
+cmake-build-*
+CMakeFiles/
+*.ninja
+*.ninja.dep
+*.ninja_log
+build.ninja
+compile_commands.json
+
+# IDE
+.idea/
+.vs/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
