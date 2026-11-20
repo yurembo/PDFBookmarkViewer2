@@ -30,6 +30,8 @@ private slots:
 
 private:
     void refreshView();
+    bool isSeparator(const QModelIndex &idx) const;
+    bool isUserBookmark(const QModelIndex &idx) const;
 
     BookmarkManager *m_mgr;
     QStandardItemModel m_model;

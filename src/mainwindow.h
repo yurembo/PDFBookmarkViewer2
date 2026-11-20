@@ -21,7 +21,6 @@ public:
 private slots:
     void onOpenFile();
     void onCloseDocument();
-    void onSaveBookmarks();
     void onQuit();
     void onNextPage();
     void onPrevPage();
@@ -32,7 +31,6 @@ private slots:
     void onZoomFit();
     void onZoomActual();
     void onAddBookmark();
-    void onReadBookmarks();
     void onPageChanged(int p);
     void onThumbPage(int p);
     void onBookmarkActivated(int p);

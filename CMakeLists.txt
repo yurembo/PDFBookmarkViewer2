@@ -66,11 +66,8 @@ if(WIN32)
     set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
 
-# Копирование платформы qwindows.dll
+# === Копирование всех зависимых DLL через скрипт ===
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "D:/Qt/6.12.0/msvc2022_64/plugins/platforms/qwindows.dll"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms/qwindows.dll"
-    COMMENT "Copying qwindows platform plugin"
+    COMMAND cmd /c "${CMAKE_CURRENT_SOURCE_DIR}/copy_deps.bat" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+    COMMENT "Copying all runtime dependencies"
 )

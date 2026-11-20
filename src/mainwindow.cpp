@@ -147,13 +147,6 @@ void MainWindow::setupMenus()
 
     fMenu->addSeparator();
 
-    auto *saveBm = new QAction("💾 Сохранить закладки в PDF", this);
-    saveBm->setShortcut(Qt::CTRL | Qt::Key_S);
-    connect(saveBm, &QAction::triggered, this, &MainWindow::onSaveBookmarks);
-    fMenu->addAction(saveBm);
-
-    fMenu->addSeparator();
-
     auto *quitAct = new QAction("Выход", this);
     quitAct->setShortcut(Qt::CTRL | Qt::Key_Q);
     connect(quitAct, &QAction::triggered, this, &MainWindow::onQuit);
@@ -190,16 +183,12 @@ void MainWindow::setupMenus()
     connect(addBm, &QAction::triggered, this, &MainWindow::onAddBookmark);
     bMenu->addAction(addBm);
 
-    auto *readBm = new QAction("Прочитать из PDF", this);
-    connect(readBm, &QAction::triggered, this, &MainWindow::onReadBookmarks);
-    bMenu->addAction(readBm);
-
     // Справка
     auto *hMenu = menuBar()->addMenu("&Справка");
     auto *about = new QAction("О программе", this);
     connect(about, &QAction::triggered, this, [this]() {
         QMessageBox::about(this, "О программе", "PDF Bookmark Viewer v1.0\n"
-            "Qt 6 + Poppler (poppler-qt5)\nВсе библиотеки Open Source.");
+            "Qt 6 + Poppler\nВсе библиотеки Open Source.");
     });
     hMenu->addAction(about);
 }
@@ -211,6 +200,7 @@ void MainWindow::setupDock()
     m_bmDock->setWidget(m_bmWidget);
     m_bmDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
     addDockWidget(Qt::LeftDockWidgetArea, m_bmDock);
+
     connect(m_bmWidget, &BookmarkWidget::bookmarkActivated, this, &MainWindow::onBookmarkActivated);
 
     m_thumbWidget = new ThumbnailWidget(m_renderer, this);
@@ -260,18 +250,6 @@ void MainWindow::onCloseDocument()
     m_renderer->closeDocument();
 }
 
-void MainWindow::onSaveBookmarks()
-{
-    if (!m_renderer->isOpen()) {
-        QMessageBox::warning(this, "Предупреждение", "Откройте PDF-файл");
-        return;
-    }
-    if (m_bmManager->saveBookmarksToPDF())
-        QMessageBox::information(this, "Успех", "Закладки сохранены в PDF");
-    else
-        QMessageBox::critical(this, "Ошибка", "Не удалось сохранить закладки");
-}
-
 void MainWindow::onQuit() { close(); }
 
 void MainWindow::onNextPage()
@@ -317,7 +295,7 @@ void MainWindow::onAddBookmark()
     if (pg < 0) return;
 
     QString def = QString("Закладка %1 (стр. %2)")
-        .arg(m_bmManager->bookmarks().size() + 1)
+        .arg(m_bmManager->userBookmarks().size() + 1)
         .arg(pg + 1);
 
     bool ok;
@@ -325,19 +303,7 @@ void MainWindow::onAddBookmark()
         "Название:", QLineEdit::Normal, def, &ok);
     if (!ok || title.trimmed().isEmpty()) return;
 
-    m_bmManager->addBookmark(title.trimmed(), pg);
-
-    // Пробуем сохранить в PDF
-    m_bmManager->saveBookmarksToPDF();
-}
-
-void MainWindow::onReadBookmarks()
-{
-    if (!m_renderer->isOpen()) {
-        QMessageBox::warning(this, "Предупреждение", "Откройте PDF-файл");
-        return;
-    }
-    m_bmManager->readBookmarksFromPDF();
+    m_bmManager->addUserBookmark(title.trimmed(), pg);
 }
 
 void MainWindow::onPageChanged(int p)
@@ -351,7 +317,16 @@ void MainWindow::onPageChanged(int p)
 }
 
 void MainWindow::onThumbPage(int p) { onPageChanged(p); }
-void MainWindow::onBookmarkActivated(int p) { onPageChanged(p); }
+
+void MainWindow::onBookmarkActivated(int p)
+{
+    // -2 означает "добавить закладку" через контекстное меню
+    if (p == -2) {
+        onAddBookmark();
+        return;
+    }
+    onPageChanged(p);
+}
 
 void MainWindow::onZoomChanged(double z)
 {
