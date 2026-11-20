@@ -26,6 +26,7 @@ copy /y "D:\Qt\6.12.0\msvc2022_64\bin\Qt6Gui.dll" "%OUT%\" >nul
 copy /y "D:\Qt\6.12.0\msvc2022_64\bin\Qt6Widgets.dll" "%OUT%\" >nul
 copy /y "D:\Qt\6.12.0\msvc2022_64\bin\Qt6Concurrent.dll" "%OUT%\" >nul
 copy /y "D:\Qt\6.12.0\msvc2022_64\bin\Qt6Pdf.dll" "%OUT%\" >nul
+copy /y "D:\Qt\6.12.0\msvc2022_64\bin\Qt6Network.dll" "%OUT%\" >nul
 
 copy /y "%VCPKG_BIN%\icuin78.dll" "%OUT%\" >nul
 copy /y "%VCPKG_BIN%\icuuc78.dll" "%OUT%\" >nul

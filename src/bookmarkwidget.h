@@ -17,16 +17,13 @@ public:
 signals:
     void bookmarkActivated(int pageNum);
 
-protected:
-    void contextMenuEvent(QContextMenuEvent *) override;
-
 private slots:
-    void onAdd();
-    void onRemove();
-    void onRename();
-    void onMoveUp();
-    void onMoveDown();
+    void onRename(const QModelIndex &idx);
+    void onRemove(const QModelIndex &idx);
+    void onMoveUp(const QModelIndex &idx);
+    void onMoveDown(const QModelIndex &idx);
     void onClicked(const QModelIndex &idx);
+    void showContextMenu(const QPoint &pos);
 
 private:
     void refreshView();

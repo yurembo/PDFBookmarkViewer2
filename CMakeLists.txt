@@ -32,9 +32,6 @@ if(NOT POPPLER_CPP_INCLUDE_DIR OR NOT POPPLER_QT6_INCLUDE_DIR OR
     message(FATAL_ERROR "Poppler not found. Check ${POPPLER_DIR}")
 endif()
 
-message(STATUS "Poppler cpp: include=${POPPLER_CPP_INCLUDE_DIR}, lib=${POPPLER_CPP_LIB}")
-message(STATUS "Poppler qt6: include=${POPPLER_QT6_INCLUDE_DIR}, lib=${POPPLER_QT6_LIB}")
-
 set(PROJECT_SOURCES
     src/main.cpp
     src/mainwindow.h src/mainwindow.cpp

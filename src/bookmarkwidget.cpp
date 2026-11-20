@@ -7,7 +7,6 @@
 #include <QHeaderView>
 #include <QLineEdit>
 #include <QFont>
-#include <QCursor>
 #include <QContextMenuEvent>
 
 BookmarkWidget::BookmarkWidget(BookmarkManager *mgr, QWidget *p)
@@ -24,6 +23,7 @@ BookmarkWidget::BookmarkWidget(BookmarkManager *mgr, QWidget *p)
     m_tree->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_tree->setSelectionMode(QAbstractItemView::SingleSelection);
     m_tree->setIndentation(16);
+    m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
     m_tree->setStyleSheet(
         "QTreeView { background-color: #1e1e1e; border: none; color: #d4d4d4; font-size: 12px; }"
         "QTreeView::item { padding: 4px 8px; }"
@@ -33,6 +33,7 @@ BookmarkWidget::BookmarkWidget(BookmarkManager *mgr, QWidget *p)
     lay->addWidget(m_tree);
 
     connect(m_tree, &QTreeView::clicked, this, &BookmarkWidget::onClicked);
+    connect(m_tree, &QTreeView::customContextMenuRequested, this, &BookmarkWidget::showContextMenu);
     connect(m_mgr, &BookmarkManager::bookmarksChanged, this, [this]() { refreshView(); });
 }
 
@@ -43,7 +44,6 @@ void BookmarkWidget::onClicked(const QModelIndex &idx)
     QString id = idx.data(Qt::UserRole).toString();
     if (id.isEmpty()) return;
 
-    // Ищем ID в объединённом списке allBookmarks
     const auto &all = m_mgr->allBookmarks();
     for (const auto &bm : all) {
         if (bm.id == id) {
@@ -59,12 +59,14 @@ void BookmarkWidget::refreshView()
     m_model.setColumnCount(1);
 
     const auto &all = m_mgr->allBookmarks();
+    const auto &pdf = m_mgr->pdfBookmarks();
+
     for (const auto &bm : all) {
         auto *item = new QStandardItem();
         item->setData(bm.id, Qt::UserRole);
 
         if (bm.id == "---separator---") {
-            // Разделитель "Закладки"
+            // Разделитель
             item->setText(bm.title);
             QFont font;
             font.setBold(true);
@@ -72,10 +74,28 @@ void BookmarkWidget::refreshView()
             item->setFont(font);
             item->setForeground(QBrush(QColor(0, 120, 215)));
             item->setEditable(false);
+            item->setData(0, Qt::UserRole + 1); // 0 = separator
         } else {
-            // Обычная закладка
-            QString t = QString("%1  (стр. %2)").arg(bm.title).arg(bm.pageNumber + 1);
-            item->setText(t);
+            // Проверяем, есть ли эта закладка в PDF outline
+            bool isPdf = false;
+            for (const auto &pb : pdf) {
+                if (pb.id == bm.id) { isPdf = true; break; }
+            }
+
+            if (isPdf) {
+                // Закладка из PDF outline
+                QString t = QString("%1  (стр. %2)").arg(bm.title).arg(bm.pageNumber + 1);
+                item->setText(t);
+                item->setData(1, Qt::UserRole + 1); // 1 = PDF bookmark
+                QFont font;
+                font.setBold(true);
+                item->setFont(font);
+            } else {
+                // Пользовательская закладка
+                QString t = QString("%1  (стр. %2)").arg(bm.title).arg(bm.pageNumber + 1);
+                item->setText(t);
+                item->setData(2, Qt::UserRole + 1); // 2 = user bookmark
+            }
         }
 
         m_model.appendRow(item);
@@ -85,63 +105,51 @@ void BookmarkWidget::refreshView()
 bool BookmarkWidget::isSeparator(const QModelIndex &idx) const
 {
     if (!idx.isValid()) return true;
-    return idx.data(Qt::UserRole).toString() == "---separator---";
+    int type = idx.data(Qt::UserRole + 1).toInt();
+    return type == 0; // 0 = separator
 }
 
 bool BookmarkWidget::isUserBookmark(const QModelIndex &idx) const
 {
     if (!idx.isValid()) return false;
-    QString id = idx.data(Qt::UserRole).toString();
-    return !id.isEmpty() && id != "---separator---";
+    int type = idx.data(Qt::UserRole + 1).toInt();
+    return type == 2; // 2 = user bookmark
 }
 
-void BookmarkWidget::contextMenuEvent(QContextMenuEvent *ev)
+void BookmarkWidget::showContextMenu(const QPoint &pos)
 {
+    QModelIndex idx = m_tree->indexAt(pos);
+
+    // Только для пользовательских закладок — показываем меню
+    if (!isUserBookmark(idx)) {
+        return;
+    }
+
     QMenu menu(this);
 
-    QModelIndex idx = m_tree->indexAt(ev->pos());
+    QAction *renameAct = menu.addAction("Переименовать");
+    QAction *moveUpAct = menu.addAction("Переместить вверх");
+    QAction *moveDownAct = menu.addAction("Переместить вниз");
+    QAction *removeAct = menu.addAction("Удалить");
 
-    if (isSeparator(idx)) {
-        // Контекстное меню для раздела "Закладки" — только добавить
-        QAction *addAct = menu.addAction("+ Добавить закладку");
-        connect(addAct, &QAction::triggered, this, &BookmarkWidget::onAdd);
-    } else if (isUserBookmark(idx)) {
-        // Контекстное меню для пользовательской закладки
-        QAction *addAct = menu.addAction("+ Добавить закладку");
-        QAction *renameAct = menu.addAction("✎ Переименовать");
-        QAction *moveUpAct = menu.addAction("▲ Переместить вверх");
-        QAction *moveDownAct = menu.addAction("▼ Переместить вниз");
-        QAction *removeAct = menu.addAction("✕ Удалить");
+    moveUpAct->setEnabled(idx.row() > 0);
 
-        connect(addAct, &QAction::triggered, this, &BookmarkWidget::onAdd);
-        connect(renameAct, &QAction::triggered, this, &BookmarkWidget::onRename);
-        connect(removeAct, &QAction::triggered, this, &BookmarkWidget::onRemove);
-        connect(moveUpAct, &QAction::triggered, this, &BookmarkWidget::onMoveUp);
-        connect(moveDownAct, &QAction::triggered, this, &BookmarkWidget::onMoveDown);
-    }
-    // Для PDF outline закладок — контекстное меню не показываем
+    connect(renameAct, &QAction::triggered, this, [this, idx]() { onRename(idx); });
+    connect(moveUpAct, &QAction::triggered, this, [this, idx]() { onMoveUp(idx); });
+    connect(moveDownAct, &QAction::triggered, this, [this, idx]() { onMoveDown(idx); });
+    connect(removeAct, &QAction::triggered, this, [this, idx]() { onRemove(idx); });
 
-    menu.exec(ev->globalPos());
+    menu.exec(m_tree->viewport()->mapToGlobal(pos));
 }
 
-void BookmarkWidget::onAdd()
+void BookmarkWidget::onRemove(const QModelIndex &idx)
 {
-    // Сигнал обрабатывается в MainWindow
-    emit bookmarkActivated(-2); // -2 означает "добавить закладку"
-}
-
-void BookmarkWidget::onRemove()
-{
-    QModelIndex idx = m_tree->indexAt(QCursor::pos());
-    if (!isUserBookmark(idx)) return;
     QString id = idx.data(Qt::UserRole).toString();
     if (!id.isEmpty()) m_mgr->removeUserBookmark(id);
 }
 
-void BookmarkWidget::onRename()
+void BookmarkWidget::onRename(const QModelIndex &idx)
 {
-    QModelIndex idx = m_tree->indexAt(QCursor::pos());
-    if (!isUserBookmark(idx)) return;
     QString id = idx.data(Qt::UserRole).toString();
     QString cur = idx.data(Qt::DisplayRole).toString();
     int sp = cur.indexOf("  (стр.");
@@ -154,16 +162,13 @@ void BookmarkWidget::onRename()
         m_mgr->updateUserBookmark(id, t.trimmed());
 }
 
-void BookmarkWidget::onMoveUp()
+void BookmarkWidget::onMoveUp(const QModelIndex &idx)
 {
-    QModelIndex idx = m_tree->indexAt(QCursor::pos());
-    if (!isUserBookmark(idx) || idx.row() == 0) return;
+    if (idx.row() == 0) return;
     m_mgr->moveUserBookmark(idx.data(Qt::UserRole).toString(), -1);
 }
 
-void BookmarkWidget::onMoveDown()
+void BookmarkWidget::onMoveDown(const QModelIndex &idx)
 {
-    QModelIndex idx = m_tree->indexAt(QCursor::pos());
-    if (!isUserBookmark(idx)) return;
     m_mgr->moveUserBookmark(idx.data(Qt::UserRole).toString(), 1);
 }

@@ -42,7 +42,7 @@ void BookmarkManager::loadUserBookmarks()
 
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qDebug() << "JSON file not found or not readable:" << path;
+        qDebug() << "JSON not found:" << path;
         m_user.clear();
         return;
     }
@@ -101,7 +101,7 @@ bool BookmarkManager::saveUserBookmarks()
 
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        qWarning() << "Cannot write JSON file:" << path;
+        qWarning() << "Cannot write JSON:" << path;
         return false;
     }
 
@@ -194,12 +194,8 @@ void BookmarkManager::walkOutline(const QList<Poppler::OutlineItem> &items)
 void BookmarkManager::rebuildAll()
 {
     m_all = m_pdf;
-    // Здесь можно было бы вставить специальный элемент-разделитель,
-    // но так как мы просто добавляем пользовательские закладки после PDF outline,
-    // разделитель будет отображён в BookmarkWidget
 
-    // Сохраняем маркер "Закладки" как отдельный элемент с пустым id
-    // для визуального разделения
+    // Разделитель "Закладки"
     Bookmark separator;
     separator.title = "Закладки";
     separator.id = "---separator---";
@@ -209,6 +205,5 @@ void BookmarkManager::rebuildAll()
     m_all.append(separator);
 
     m_all.append(m_user);
-
     emit bookmarksChanged();
 }

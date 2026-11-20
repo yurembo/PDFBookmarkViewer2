@@ -53,7 +53,7 @@ public:
     // Загрузить пользовательские закладки из JSON-файла рядом с PDF
     void loadUserBookmarks();
 
-    // Объединённый список для отображения: PDF outline + разделитель + пользовательские
+    // Объединённый список для отображения
     const QList<Bookmark>& allBookmarks() const { return m_all; }
 
     // Доступ к PDF outline
