@@ -5,6 +5,8 @@
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QSharedPointer>
+#include <QMap>
+#include <QTimer>
 
 class PDFRenderer;
 
@@ -33,7 +35,8 @@ public slots:
     void zoomFit();
 
 private:
-    void scaleAllPages();
+    void scaleVisiblePages();
+    void scaleAllCachedPages();
     void mousePressEvent(QMouseEvent *ev) override;
     void wheelEvent(QWheelEvent *ev) override;
     void mouseReleaseEvent(QMouseEvent *ev) override;
@@ -50,6 +53,9 @@ private:
     QList<QSharedPointer<QPixmap>> m_originalPixmaps;
     int m_current = -1;
     double m_zoom = 1.0;
+
+    // Debounce для зума — ждём 150мс после последнего действия
+    QTimer m_zoomTimer;
 };
 
 #endif
