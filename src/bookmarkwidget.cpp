@@ -43,18 +43,13 @@ void BookmarkWidget::onClicked(const QModelIndex &idx)
     QString id = idx.data(Qt::UserRole).toString();
     if (id.isEmpty()) return;
 
-    // Ищем индекс ID в userBookmarks
-    int index = -1;
-    const auto &ubs = m_mgr->userBookmarks();
-    for (int i = 0; i < ubs.size(); ++i) {
-        if (ubs[i].id == id) {
-            index = i;
-            break;
+    // Ищем ID в объединённом списке allBookmarks
+    const auto &all = m_mgr->allBookmarks();
+    for (const auto &bm : all) {
+        if (bm.id == id) {
+            emit bookmarkActivated(bm.pageNumber);
+            return;
         }
-    }
-
-    if (index >= 0) {
-        emit bookmarkActivated(ubs[index].pageNumber);
     }
 }
 

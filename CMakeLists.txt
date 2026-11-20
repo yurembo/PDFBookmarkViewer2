@@ -68,6 +68,6 @@ endif()
 
 # === Копирование всех зависимых DLL через скрипт ===
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND cmd /c "${CMAKE_CURRENT_SOURCE_DIR}/copy_deps.bat" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+    COMMAND cmd /c "${CMAKE_CURRENT_SOURCE_DIR}/copy_deps.bat"
     COMMENT "Copying all runtime dependencies"
 )
