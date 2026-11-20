@@ -6,7 +6,9 @@
 #include <QLabel>
 #include <QList>
 #include <QTimer>
-#include <QImage>
+#include <QMouseEvent>
+#include <QWheelEvent>
+#include <QKeyEvent>
 
 class PDFRenderer;
 
@@ -35,13 +37,13 @@ public slots:
     void zoomOut();
     void zoomFit();
 
-private:
-    void zoomApply();
+protected:
     void mousePressEvent(QMouseEvent *ev) override;
     void wheelEvent(QWheelEvent *ev) override;
-    void mouseReleaseEvent(QMouseEvent *ev) override;
-    void mouseMoveEvent(QMouseEvent *ev) override;
     void keyPressEvent(QKeyEvent *ev) override;
+
+private:
+    void zoomApply();
     int visiblePage() const;
 
     QLabel *addPage(int pageNum);
@@ -49,11 +51,8 @@ private:
     PDFRenderer *m_r = nullptr;
     QVBoxLayout *m_layout = nullptr;
     QList<QLabel*> m_labels;
-    QList<QImage> m_cachedImages; // Базовые изображения (150 DPI)
     int m_current = -1;
     double m_zoom = 1.0;
-
-    // Debounce для зума
     QTimer m_zoomTimer;
 };
 

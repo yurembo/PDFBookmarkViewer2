@@ -21,14 +21,19 @@ void ThumbnailWidget::setCurrentPage(int p)
 void ThumbnailWidget::updateThumbnails()
 {
     m_thumbs.clear();
-    if (!m_r || !m_r->isOpen()) { update(); return; }
+    if (!m_r || !m_r->isOpen()) {
+        update();
+        return;
+    }
 
+    QList<QImage> thumbs;
     int count = m_r->pageCount();
     for (int i = 0; i < count; ++i) {
         QImage thumb = m_r->renderPageAsImage(i, 96);
         int h = qRound(static_cast<double>(thumb.height()) * kWidth / thumb.width());
-        m_thumbs.append(thumb.scaled(kWidth, h, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        thumbs.append(thumb.scaled(kWidth, h, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     }
+    m_thumbs = thumbs;
     update();
 }
 

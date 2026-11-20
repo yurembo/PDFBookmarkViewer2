@@ -1,10 +1,9 @@
 #include "continuousview.h"
 #include "pdfrenderer.h"
 
-#include <QMouseEvent>
 #include <QScrollBar>
 #include <QPoint>
-#include <QTimer>
+#include <QApplication>
 
 ContinuousView::ContinuousView(PDFRenderer *r, QWidget *p)
     : QScrollArea(p)
@@ -43,12 +42,13 @@ void ContinuousView::renderAll()
 
 void ContinuousView::clear()
 {
-    for (auto *label : m_labels) {
+    for (int i = m_labels.size() - 1; i >= 0; --i) {
+        auto *label = m_labels[i];
+        label->setParent(nullptr);
         m_layout->removeWidget(label);
-        label->deleteLater();
+        delete label;
     }
     m_labels.clear();
-    m_cachedImages.clear();
     m_current = -1;
 }
 
@@ -88,13 +88,15 @@ void ContinuousView::zoomApply()
 {
     if (!m_r || !m_r->isOpen() || m_labels.isEmpty()) return;
 
-    for (int i = 0; i < (int)m_labels.size() && i < (int)m_cachedImages.size(); ++i) {
-        const QImage &base = m_cachedImages.at(i);
-        if (base.isNull()) continue;
+    for (int i = 0; i < (int)m_labels.size(); ++i) {
+        auto *label = m_labels[i];
+        int pageNum = label->property("pageNum").toInt();
+        QImage img = m_r->renderPageAsImage(pageNum, 150);
+        if (img.isNull()) continue;
 
-        int targetW = qRound(base.width() * m_zoom);
-        int targetH = qRound(base.height() * m_zoom);
-        m_labels[i]->setPixmap(QPixmap::fromImage(base.scaled(targetW, targetH, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
+        int targetW = qRound(img.width() * m_zoom);
+        int targetH = qRound(img.height() * m_zoom);
+        label->setPixmap(QPixmap::fromImage(img.scaled(targetW, targetH, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
     }
 }
 
@@ -111,19 +113,17 @@ void ContinuousView::zoomOut()
 void ContinuousView::zoomFit()
 {
     if (!m_r || !m_r->isOpen() || m_r->pageCount() == 0) return;
-    if (m_labels.isEmpty() || m_cachedImages.isEmpty()) return;
+    if (m_labels.isEmpty()) return;
 
-    // Используем base image (без учёта текущего zoom) для точного расчёта
-    const QImage &base = m_cachedImages.first();
-    if (base.isNull()) return;
+    int pageNum = m_labels.first()->property("pageNum").toInt();
+    QImage img = m_r->renderPageAsImage(pageNum, 150);
+    if (img.isNull()) return;
 
     int viewW = viewport()->width();
     int viewH = viewport()->height();
-    int pageW = base.width();
-    int pageH = base.height();
 
-    double fitX = static_cast<double>(viewW) / pageW;
-    double fitY = static_cast<double>(viewH) / pageH;
+    double fitX = static_cast<double>(viewW) / img.width();
+    double fitY = static_cast<double>(viewH) / img.height();
     double fitZoom = qMin(fitX, fitY);
 
     setZoom(qBound(0.1, fitZoom, 3.0));
@@ -133,8 +133,6 @@ QLabel *ContinuousView::addPage(int pageNum)
 {
     QImage img = m_r->renderPageAsImage(pageNum, 150);
     if (img.isNull()) return nullptr;
-
-    m_cachedImages.append(img);
 
     auto *label = new QLabel();
     label->setPixmap(QPixmap::fromImage(img));
@@ -226,14 +224,4 @@ int ContinuousView::visiblePage() const
     auto *label = qobject_cast<QLabel*>(childAt(center));
     if (label) return label->property("pageNum").toInt();
     return -1;
-}
-
-void ContinuousView::mouseReleaseEvent(QMouseEvent *ev)
-{
-    Q_UNUSED(ev);
-}
-
-void ContinuousView::mouseMoveEvent(QMouseEvent *ev)
-{
-    Q_UNUSED(ev);
 }
