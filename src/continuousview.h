@@ -4,9 +4,9 @@
 #include <QScrollArea>
 #include <QVBoxLayout>
 #include <QLabel>
-#include <QSharedPointer>
-#include <QMap>
+#include <QList>
 #include <QTimer>
+#include <QImage>
 
 class PDFRenderer;
 
@@ -28,6 +28,7 @@ signals:
     void currentPageChanged(int p);
     void visiblePageChanged(int p);
     void zoomChanged(double z);
+    void bookmarkActivated(int p, double z);
 
 public slots:
     void zoomIn();
@@ -35,8 +36,7 @@ public slots:
     void zoomFit();
 
 private:
-    void scaleVisiblePages();
-    void scaleAllCachedPages();
+    void zoomApply();
     void mousePressEvent(QMouseEvent *ev) override;
     void wheelEvent(QWheelEvent *ev) override;
     void mouseReleaseEvent(QMouseEvent *ev) override;
@@ -45,16 +45,15 @@ private:
     int visiblePage() const;
 
     QLabel *addPage(int pageNum);
-    void removePage(int pageNum);
 
     PDFRenderer *m_r = nullptr;
     QVBoxLayout *m_layout = nullptr;
     QList<QLabel*> m_labels;
-    QList<QSharedPointer<QPixmap>> m_originalPixmaps;
+    QList<QImage> m_cachedImages; // Базовые изображения (150 DPI)
     int m_current = -1;
     double m_zoom = 1.0;
 
-    // Debounce для зума — ждём 150мс после последнего действия
+    // Debounce для зума
     QTimer m_zoomTimer;
 };
 

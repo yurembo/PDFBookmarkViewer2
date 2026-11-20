@@ -33,7 +33,7 @@ private slots:
     void onAddBookmark();
     void onPageChanged(int p);
     void onThumbPage(int p);
-    void onBookmarkActivated(int p);
+    void onBookmarkActivated(int p, double z);
     void onZoomChanged(double z);
 
 private:

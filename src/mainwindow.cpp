@@ -318,14 +318,20 @@ void MainWindow::onPageChanged(int p)
 
 void MainWindow::onThumbPage(int p) { onPageChanged(p); }
 
-void MainWindow::onBookmarkActivated(int p)
+void MainWindow::onBookmarkActivated(int p, double z)
 {
     // -2 означает "добавить закладку" через контекстное меню
     if (p == -2) {
         onAddBookmark();
         return;
     }
-    onPageChanged(p);
+    if (p < 0 || p >= m_total) return;
+    m_page = p;
+    m_pageView->setCurrentPage(p);
+    m_pageView->setZoom(z);
+    m_pageCombo->setCurrentIndex(p);
+    m_thumbWidget->setCurrentPage(p);
+    m_pageInfo->setText(QString("Стр: %1 / %2").arg(p + 1).arg(m_total));
 }
 
 void MainWindow::onZoomChanged(double z)

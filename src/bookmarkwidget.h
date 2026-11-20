@@ -15,7 +15,7 @@ public:
     BookmarkWidget(BookmarkManager *mgr, QWidget *p = nullptr);
 
 signals:
-    void bookmarkActivated(int pageNum);
+    void bookmarkActivated(int pageNum, double zoom);
 
 private slots:
     void onRename(const QModelIndex &idx);

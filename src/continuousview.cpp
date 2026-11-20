@@ -24,10 +24,10 @@ ContinuousView::ContinuousView(PDFRenderer *r, QWidget *p)
     setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     setMouseTracking(true);
 
-    // Debounce для зума — ждём 150мс после окончания прокрутки
+    // Debounce для зума
     m_zoomTimer.setSingleShot(true);
-    m_zoomTimer.setInterval(150);
-    connect(&m_zoomTimer, &QTimer::timeout, this, &ContinuousView::scaleVisiblePages);
+    m_zoomTimer.setInterval(200);
+    connect(&m_zoomTimer, &QTimer::timeout, this, &ContinuousView::zoomApply);
 }
 
 void ContinuousView::renderAll()
@@ -43,12 +43,12 @@ void ContinuousView::renderAll()
 
 void ContinuousView::clear()
 {
-    for (auto *label : std::as_const(m_labels)) {
+    for (auto *label : m_labels) {
         m_layout->removeWidget(label);
         label->deleteLater();
     }
     m_labels.clear();
-    m_originalPixmaps.clear();
+    m_cachedImages.clear();
     m_current = -1;
 }
 
@@ -80,35 +80,21 @@ void ContinuousView::setZoom(double z)
     if (!changed) return;
 
     m_zoom = z;
-
-    // Запускаем debounce — масштабирование произойдёт через 150мс
     m_zoomTimer.start();
+    emit zoomChanged(m_zoom);
 }
 
-void ContinuousView::scaleVisiblePages()
+void ContinuousView::zoomApply()
 {
-    if (!viewport()->isVisible()) return;
+    if (!m_r || !m_r->isOpen() || m_labels.isEmpty()) return;
 
-    int viewW = viewport()->width();
-    int viewH = viewport()->height();
+    for (int i = 0; i < (int)m_labels.size() && i < (int)m_cachedImages.size(); ++i) {
+        const QImage &base = m_cachedImages.at(i);
+        if (base.isNull()) continue;
 
-    for (int i = 0; i < m_labels.size() && i < (int)m_originalPixmaps.size(); ++i) {
-        const QPixmap *orig = m_originalPixmaps[i].data();
-        if (!orig || orig->isNull()) continue;
-
-        auto *label = m_labels[i];
-        QRect labelRect = label->geometry();
-
-        // Проверяем пересечение с видимой областью viewport
-        int labelTop = labelRect.top();
-        int labelBottom = labelRect.bottom();
-
-        // Показываем если пересекается с viewport + небольшой запас
-        if (labelBottom > -50 && labelTop < viewH + 50) {
-            int targetW = qRound(orig->width() * m_zoom);
-            int targetH = qRound(orig->height() * m_zoom);
-            label->setPixmap(orig->scaled(targetW, targetH, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-        }
+        int targetW = qRound(base.width() * m_zoom);
+        int targetH = qRound(base.height() * m_zoom);
+        m_labels[i]->setPixmap(QPixmap::fromImage(base.scaled(targetW, targetH, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
     }
 }
 
@@ -125,16 +111,19 @@ void ContinuousView::zoomOut()
 void ContinuousView::zoomFit()
 {
     if (!m_r || !m_r->isOpen() || m_r->pageCount() == 0) return;
-    if (m_labels.isEmpty()) return;
+    if (m_labels.isEmpty() || m_cachedImages.isEmpty()) return;
 
-    QPixmap pm0 = m_labels[0]->pixmap(Qt::ReturnByValue);
-    double pageW = pm0.width();
-    double pageH = pm0.height();
+    // Используем base image (без учёта текущего zoom) для точного расчёта
+    const QImage &base = m_cachedImages.first();
+    if (base.isNull()) return;
+
     int viewW = viewport()->width();
     int viewH = viewport()->height();
+    int pageW = base.width();
+    int pageH = base.height();
 
-    double fitX = viewW / pageW;
-    double fitY = viewH / pageH;
+    double fitX = static_cast<double>(viewW) / pageW;
+    double fitY = static_cast<double>(viewH) / pageH;
     double fitZoom = qMin(fitX, fitY);
 
     setZoom(qBound(0.1, fitZoom, 3.0));
@@ -145,11 +134,10 @@ QLabel *ContinuousView::addPage(int pageNum)
     QImage img = m_r->renderPageAsImage(pageNum, 150);
     if (img.isNull()) return nullptr;
 
-    auto *pm = new QPixmap(QPixmap::fromImage(img));
-    m_originalPixmaps.append(QSharedPointer<QPixmap>(pm));
+    m_cachedImages.append(img);
 
     auto *label = new QLabel();
-    label->setPixmap(pm->scaled(pm->width(), pm->height(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    label->setPixmap(QPixmap::fromImage(img));
     label->setMouseTracking(true);
     label->setAttribute(Qt::WA_Hover);
     label->setProperty("pageNum", pageNum);
@@ -160,22 +148,6 @@ QLabel *ContinuousView::addPage(int pageNum)
     return label;
 }
 
-void ContinuousView::removePage(int pageNum)
-{
-    if (pageNum < 0 || pageNum >= (int)m_labels.size()) return;
-
-    auto *label = m_labels.takeAt(pageNum);
-    m_originalPixmaps.takeAt(pageNum);
-    m_layout->removeWidget(label);
-    label->deleteLater();
-
-    if (m_current == pageNum) {
-        m_current = qBound(0, m_current, (int)m_labels.size() - 1);
-    } else if (m_current > pageNum) {
-        --m_current;
-    }
-}
-
 void ContinuousView::mousePressEvent(QMouseEvent *ev)
 {
     if (ev->button() == Qt::LeftButton) {
@@ -184,6 +156,7 @@ void ContinuousView::mousePressEvent(QMouseEvent *ev)
             int pageNum = label->property("pageNum").toInt();
             if (pageNum >= 0 && pageNum < (int)m_labels.size()) {
                 setCurrentPage(pageNum);
+                emit bookmarkActivated(pageNum, m_zoom);
                 return;
             }
         }
@@ -197,7 +170,6 @@ void ContinuousView::wheelEvent(QWheelEvent *ev)
 
     QScrollArea::wheelEvent(ev);
 
-    // При прокрутке колесом — сбрасываем debounce зума
     if (m_zoomTimer.isActive()) {
         m_zoomTimer.start();
     }
@@ -222,11 +194,13 @@ void ContinuousView::keyPressEvent(QKeyEvent *ev)
     case Qt::Key_PageDown:
         if (m_current < (int)m_labels.size() - 1) {
             setCurrentPage(m_current + 1);
+            zoomApply();
         }
         break;
     case Qt::Key_PageUp:
         if (m_current > 0) {
             setCurrentPage(m_current - 1);
+            zoomApply();
         }
         break;
     case Qt::Key_Plus:

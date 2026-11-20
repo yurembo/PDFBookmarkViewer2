@@ -47,7 +47,7 @@ void BookmarkWidget::onClicked(const QModelIndex &idx)
     const auto &all = m_mgr->allBookmarks();
     for (const auto &bm : all) {
         if (bm.id == id) {
-            emit bookmarkActivated(bm.pageNumber);
+            emit bookmarkActivated(bm.pageNumber, bm.zoom);
             return;
         }
     }
