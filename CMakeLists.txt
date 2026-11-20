@@ -66,23 +66,11 @@ if(WIN32)
     set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
 
-# Post-build: копирование DLL из Qt SDK для Release
-# ОТКЛЮЧАЕМ vcpkg post-build, который перезаписывает DLL
-set(VCPKG_APPLOCAL_DEPS OFF)
-
-# Копируем DLL из Qt SDK и poppler из vcpkg
+# Копирование платформы qwindows.dll
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "D:/Qt/6.12.0/msvc2022_64/bin/Qt6Core.dll"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "D:/Qt/6.12.0/msvc2022_64/bin/Qt6Gui.dll"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "D:/Qt/6.12.0/msvc2022_64/bin/Qt6Widgets.dll"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "D:/yurem/vcpkg/installed/x64-windows/bin/qwindows.dll"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms/"
-    COMMENT "Copying platform and Qt DLLs"
+        "D:/Qt/6.12.0/msvc2022_64/plugins/platforms/qwindows.dll"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms/qwindows.dll"
+    COMMENT "Copying qwindows platform plugin"
 )

@@ -7,7 +7,7 @@
 #include <QList>
 #include <QUuid>
 #include <QSharedPointer>
-#include <poppler-qt6.h>
+#include <poppler/qt6/poppler-qt6.h>
 #include <poppler/cpp/poppler-document.h>
 
 class PDFRenderer;
