@@ -2,10 +2,9 @@
 #define PDFRENDERER_H
 
 #include <QObject>
-#include <QSize>
-#include <QImage>
 #include <QString>
-#include <poppler-qt6.h>
+#include <QSizeF>
+#include <QPdfDocument>
 
 class PDFRenderer : public QObject
 {
@@ -18,24 +17,29 @@ public:
     void closeDocument();
 
     bool isOpen() const;
+    bool isLoading() const;
+    bool isReady() const;
     int pageCount() const;
+
     QString documentTitle() const;
     QString documentAuthor() const;
     QString fileName() const;
 
-    QImage renderPage(int pageNum, int widthPx, int heightPx, double scale = 1.0) const;
-    QImage renderPageAsImage(int pageNum, double dpi = 150) const;
     QSizeF pageSize(int pageNum) const;
 
-    Poppler::Document *native() const;
+    QPdfDocument *native() const { return m_doc.get(); }
 
 signals:
     void documentLoaded();
     void documentClosed();
+    void documentStatusChanged(QPdfDocument::Status status);
 
 private:
-    std::unique_ptr<Poppler::Document> m_doc;
+    void onStatusChanged(QPdfDocument::Status status);
+
+    std::unique_ptr<QPdfDocument> m_doc;
     QString m_filePath;
+    QPdfDocument::Status m_status = QPdfDocument::Status::Null;
 };
 
 #endif

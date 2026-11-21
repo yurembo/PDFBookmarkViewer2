@@ -2,48 +2,32 @@
 #include "pdfrenderer.h"
 
 #include <QFile>
-#include <QJsonObject>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QDir>
 #include <QFileInfo>
 #include <QDebug>
 
-BookmarkManager::BookmarkManager(QObject *parent) : QObject(parent) {}
+BookmarkManager::BookmarkManager(QObject *parent)
+    : QObject(parent)
+{}
 
-void BookmarkManager::readBookmarksFromPDF()
+void BookmarkManager::loadUserBookmarks()
 {
-    m_pdf.clear();
     m_user.clear();
     m_all.clear();
 
-    if (!m_r || !m_r->isOpen()) {
+    QString path = jsonFilePath();
+    if (path.isEmpty()) {
         rebuildAll();
         return;
     }
 
-    Poppler::Document *doc = m_r->native();
-    if (!doc) { rebuildAll(); return; }
-
-    // Загружаем outline из PDF
-    QList<Poppler::OutlineItem> outline = doc->outline();
-    walkOutline(outline);
-
-    // Загружаем пользовательские закладки из JSON
-    loadUserBookmarks();
-
-    rebuildAll();
-}
-
-void BookmarkManager::loadUserBookmarks()
-{
-    QString path = jsonFilePath();
-    if (path.isEmpty()) { m_user.clear(); return; }
-
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qDebug() << "JSON not found:" << path;
-        m_user.clear();
+        rebuildAll();
         return;
     }
 
@@ -54,12 +38,14 @@ void BookmarkManager::loadUserBookmarks()
     auto doc = QJsonDocument::fromJson(data, &err);
     if (err.error != QJsonParseError::NoError) {
         qWarning() << "JSON parse error:" << err.error;
-        m_user.clear();
+        rebuildAll();
         return;
     }
-    if (!doc.isArray()) { m_user.clear(); return; }
+    if (!doc.isArray()) {
+        rebuildAll();
+        return;
+    }
 
-    m_user.clear();
     for (const auto &v : doc.array()) {
         if (!v.isObject()) continue;
         auto o = v.toObject();
@@ -70,10 +56,12 @@ void BookmarkManager::loadUserBookmarks()
         bm.zoom = o["zoom"].toDouble(1.0);
         bm.open = o["open"].toBool(true);
         bm.color = QColor(o["color"].toString("#0050b4"));
-        m_user.append(bm);
+        if (!bm.title.isEmpty())
+            m_user.append(bm);
     }
 
     qDebug() << "Loaded" << m_user.size() << "user bookmarks from" << path;
+    rebuildAll();
 }
 
 bool BookmarkManager::saveUserBookmarks()
@@ -100,7 +88,7 @@ bool BookmarkManager::saveUserBookmarks()
     }
 
     QFile file(path);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         qWarning() << "Cannot write JSON:" << path;
         return false;
     }
@@ -171,39 +159,12 @@ QString BookmarkManager::jsonFilePath() const
     return fi.dir().filePath(fi.baseName() + "_bookmarks.json");
 }
 
-void BookmarkManager::walkOutline(const QList<Poppler::OutlineItem> &items)
-{
-    for (const auto &item : items) {
-        Bookmark entry;
-        entry.title = item.name().trimmed();
-
-        auto dest = item.destination();
-        if (dest && dest->pageNumber() > 0) {
-            int pg = dest->pageNumber() - 1;
-            if (pg >= 0 && pg < m_r->pageCount())
-                entry.pageNumber = pg;
-        }
-
-        m_pdf.append(entry);
-
-        if (item.hasChildren())
-            walkOutline(item.children().toList());
-    }
-}
-
 void BookmarkManager::rebuildAll()
 {
-    m_all = m_pdf;
+    m_all.clear();
 
-    // Разделитель "Закладки"
-    Bookmark separator;
-    separator.title = "Закладки";
-    separator.id = "---separator---";
-    separator.pageNumber = -1;
-    separator.zoom = 0.0;
-    separator.color = QColor(100, 100, 100);
-    m_all.append(separator);
-
+    // Пользовательские закладки
     m_all.append(m_user);
+
     emit bookmarksChanged();
 }

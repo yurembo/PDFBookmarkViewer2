@@ -2,7 +2,6 @@
 #include "pdfrenderer.h"
 #include "bookmarkmanager.h"
 #include "bookmarkwidget.h"
-#include "thumbnailwidget.h"
 #include "continuousview.h"
 
 #include <QMenuBar>
@@ -16,7 +15,6 @@
 #include <QVBoxLayout>
 #include <QDockWidget>
 #include <QFileInfo>
-#include <QDebug>
 #include <QInputDialog>
 #include <QLineEdit>
 
@@ -30,16 +28,16 @@ MainWindow::MainWindow(QWidget *p)
     m_bmManager = new BookmarkManager(this);
     m_bmManager->setRenderer(m_renderer);
 
+    // QPdfDocument загружается асинхронно — ждём documentLoaded
     connect(m_renderer, &PDFRenderer::documentLoaded, this, [this]() {
         m_file = m_renderer->fileName();
         m_total = m_renderer->pageCount();
-        m_bmManager->readBookmarksFromPDF();
+        // Подключаем QPdfDocument к QPdfView
+        m_pageView->setDocument(m_renderer->native());
+        m_bmManager->loadUserBookmarks();
         updateNav();
         m_page = 0;
-        m_pageView->renderAll();
-        m_pageView->setCurrentPage(0);
         m_pageCombo->setCurrentIndex(0);
-        m_thumbWidget->setCurrentPage(0);
 
         QString title = "PDF Bookmark Viewer";
         if (!m_file.isEmpty())
@@ -54,7 +52,6 @@ MainWindow::MainWindow(QWidget *p)
     connect(m_renderer, &PDFRenderer::documentClosed, this, [this]() {
         m_file.clear(); m_total = 0; m_page = -1;
         updateNav();
-        m_pageView->clear();
     });
 
     setupUI();
@@ -115,15 +112,10 @@ void MainWindow::setupUI()
     tbLay->addWidget(zout);
     tbLay->addWidget(zfit);
 
-    m_pageView = new ContinuousView(m_renderer, cent);
+    // QPdfView встроен напрямую — ленивый рендеринг, GPU-ускорение
+    m_pageView = new ContinuousView(cent);
 
     connect(m_pageView, &ContinuousView::currentPageChanged, this, &MainWindow::onPageChanged);
-    connect(m_pageView, &ContinuousView::visiblePageChanged, this, [this](int p) {
-        if (p >= 0 && p < m_total) {
-            m_pageInfo->setText(QString("Стр: %1 / %2").arg(p + 1).arg(m_total));
-        }
-    });
-    connect(m_pageView, &ContinuousView::zoomChanged, this, &MainWindow::onZoomChanged);
 
     lay->addWidget(tb);
     lay->addWidget(m_pageView);
@@ -170,11 +162,6 @@ void MainWindow::setupMenus()
     connect(toggleBm, &QAction::toggled, this, [this](bool on) { m_bmDock->setVisible(on); });
     vMenu->addAction(toggleBm);
 
-    auto *toggleThumb = new QAction("Панель страниц", this);
-    toggleThumb->setCheckable(true); toggleThumb->setChecked(true);
-    connect(toggleThumb, &QAction::toggled, this, [this](bool on) { m_thumbDock->setVisible(on); });
-    vMenu->addAction(toggleThumb);
-
     // Закладки
     auto *bMenu = menuBar()->addMenu("&Закладки");
 
@@ -187,8 +174,8 @@ void MainWindow::setupMenus()
     auto *hMenu = menuBar()->addMenu("&Справка");
     auto *about = new QAction("О программе", this);
     connect(about, &QAction::triggered, this, [this]() {
-        QMessageBox::about(this, "О программе", "PDF Bookmark Viewer v1.0\n"
-            "Qt 6 + Poppler\nВсе библиотеки Open Source.");
+        QMessageBox::about(this, "О программе", "PDF Bookmark Viewer v2.0\n"
+            "Qt 6 Pdf + Native Rendering.");
     });
     hMenu->addAction(about);
 }
@@ -202,13 +189,6 @@ void MainWindow::setupDock()
     addDockWidget(Qt::LeftDockWidgetArea, m_bmDock);
 
     connect(m_bmWidget, &BookmarkWidget::bookmarkActivated, this, &MainWindow::onBookmarkActivated);
-
-    m_thumbWidget = new ThumbnailWidget(m_renderer, this);
-    m_thumbDock = new QDockWidget("Страницы", this);
-    m_thumbDock->setWidget(m_thumbWidget);
-    m_thumbDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-    addDockWidget(Qt::RightDockWidgetArea, m_thumbDock);
-    connect(m_thumbWidget, &ThumbnailWidget::pageRequested, this, &MainWindow::onThumbPage);
 }
 
 void MainWindow::setupStatus()
@@ -241,6 +221,10 @@ void MainWindow::onOpenFile()
 {
     QString fp = QFileDialog::getOpenFileName(this, "Открыть PDF", QString(), "PDF (*.pdf)");
     if (fp.isEmpty()) return;
+
+    // Отключаем навигацию во время загрузки
+    m_pageCombo->setEnabled(false);
+
     if (!m_renderer->loadDocument(fp))
         QMessageBox::critical(this, "Ошибка", "Не удалось открыть PDF");
 }
@@ -312,25 +296,16 @@ void MainWindow::onPageChanged(int p)
     m_page = p;
     m_pageView->setCurrentPage(p);
     m_pageCombo->setCurrentIndex(p);
-    m_thumbWidget->setCurrentPage(p);
     m_pageInfo->setText(QString("Стр: %1 / %2").arg(p + 1).arg(m_total));
 }
 
-void MainWindow::onThumbPage(int p) { onPageChanged(p); }
-
 void MainWindow::onBookmarkActivated(int p, double z)
 {
-    // -2 означает "добавить закладку" через контекстное меню
-    if (p == -2) {
-        onAddBookmark();
-        return;
-    }
     if (p < 0 || p >= m_total) return;
     m_page = p;
-    m_pageView->setCurrentPage(p);
     m_pageView->setZoom(z);
+    m_pageView->setCurrentPage(p);
     m_pageCombo->setCurrentIndex(p);
-    m_thumbWidget->setCurrentPage(p);
     m_pageInfo->setText(QString("Стр: %1 / %2").arg(p + 1).arg(m_total));
 }
 

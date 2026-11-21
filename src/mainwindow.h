@@ -8,7 +8,6 @@
 class PDFRenderer;
 class BookmarkManager;
 class BookmarkWidget;
-class ThumbnailWidget;
 class ContinuousView;
 
 class MainWindow : public QMainWindow
@@ -32,7 +31,6 @@ private slots:
     void onZoomActual();
     void onAddBookmark();
     void onPageChanged(int p);
-    void onThumbPage(int p);
     void onBookmarkActivated(int p, double z);
     void onZoomChanged(double z);
 
@@ -49,7 +47,6 @@ private:
 
     ContinuousView *m_pageView = nullptr;
     BookmarkWidget *m_bmWidget = nullptr;
-    ThumbnailWidget *m_thumbWidget = nullptr;
 
     QComboBox *m_pageCombo = nullptr;
     QLabel *m_pageInfo = nullptr;
@@ -61,7 +58,6 @@ private:
     QString m_file;
 
     QDockWidget *m_bmDock = nullptr;
-    QDockWidget *m_thumbDock = nullptr;
 };
 
 #endif

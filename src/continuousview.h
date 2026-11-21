@@ -1,29 +1,25 @@
 #ifndef CONTINUOUSVIEW_H
 #define CONTINUOUSVIEW_H
 
-#include <QScrollArea>
-#include <QVBoxLayout>
-#include <QLabel>
-#include <QList>
-#include <QTimer>
-#include <QMouseEvent>
-#include <QWheelEvent>
-#include <QKeyEvent>
+#include <QWidget>
 
-class PDFRenderer;
+class QPdfView;
+class QPdfDocument;
+class QPdfPageNavigator;
 
-class ContinuousView : public QScrollArea
+class ContinuousView : public QWidget
 {
     Q_OBJECT
 public:
-    explicit ContinuousView(PDFRenderer *r, QWidget *p = nullptr);
+    explicit ContinuousView(QWidget *p = nullptr);
+    ~ContinuousView();
 
-    void renderAll();
-    void clear();
-    int currentPage() const { return m_current; }
+    void setDocument(QPdfDocument *doc);
+
+    int currentPage() const;
     void setCurrentPage(int p);
 
-    double zoom() const { return m_zoom; }
+    double zoom() const;
     void setZoom(double z);
 
 signals:
@@ -37,23 +33,11 @@ public slots:
     void zoomOut();
     void zoomFit();
 
-protected:
-    void mousePressEvent(QMouseEvent *ev) override;
-    void wheelEvent(QWheelEvent *ev) override;
-    void keyPressEvent(QKeyEvent *ev) override;
-
 private:
-    void zoomApply();
-    int visiblePage() const;
+    void onCurrentPageChanged(int p);
 
-    QLabel *addPage(int pageNum);
-
-    PDFRenderer *m_r = nullptr;
-    QVBoxLayout *m_layout = nullptr;
-    QList<QLabel*> m_labels;
-    int m_current = -1;
-    double m_zoom = 1.0;
-    QTimer m_zoomTimer;
+    QPdfView *m_pdfView = nullptr;
+    QPdfDocument *m_doc = nullptr;
 };
 
 #endif
