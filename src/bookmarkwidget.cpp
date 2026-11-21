@@ -8,6 +8,8 @@
 #include <QLineEdit>
 #include <QFont>
 #include <QContextMenuEvent>
+#include <QItemSelectionModel>
+#include <QScrollBar>
 
 BookmarkWidget::BookmarkWidget(BookmarkManager *mgr, QWidget *p)
     : QWidget(p)
@@ -34,6 +36,7 @@ BookmarkWidget::BookmarkWidget(BookmarkManager *mgr, QWidget *p)
 
     connect(m_tree, &QTreeView::clicked, this, &BookmarkWidget::onClicked);
     connect(m_tree, &QTreeView::customContextMenuRequested, this, &BookmarkWidget::showContextMenu);
+    connect(m_tree, &QTreeView::pressed, this, &BookmarkWidget::onTreePressed);
     connect(m_mgr, &BookmarkManager::bookmarksChanged, this, [this]() { refreshView(); });
 }
 
@@ -51,6 +54,13 @@ void BookmarkWidget::onClicked(const QModelIndex &idx)
             return;
         }
     }
+}
+
+void BookmarkWidget::onTreePressed(const QModelIndex &idx)
+{
+    if (!idx.isValid()) return;
+    m_selectedId = idx.data(Qt::UserRole).toString();
+    m_scrollPos = m_tree->verticalScrollBar()->value();
 }
 
 void BookmarkWidget::refreshView()
@@ -100,6 +110,25 @@ void BookmarkWidget::refreshView()
 
         m_model.appendRow(item);
     }
+
+    // Восстанавливаем выбор
+    if (!m_selectedId.isEmpty()) {
+        int row = 0;
+        for (const auto &bm : all) {
+            if (bm.id == m_selectedId) {
+                QModelIndex idx = m_model.index(row, 0);
+                m_tree->selectionModel()->select(idx, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+                m_tree->scrollTo(idx);
+                break;
+            }
+            row++;
+        }
+    }
+
+    // Восстанавливаем скролл
+    if (!m_selectedId.isEmpty()) {
+        m_tree->verticalScrollBar()->setValue(m_scrollPos);
+    }
 }
 
 bool BookmarkWidget::isSeparator(const QModelIndex &idx) const
@@ -119,6 +148,11 @@ bool BookmarkWidget::isUserBookmark(const QModelIndex &idx) const
 void BookmarkWidget::showContextMenu(const QPoint &pos)
 {
     QModelIndex idx = m_tree->indexAt(pos);
+    if (!idx.isValid()) return;
+
+    // Сохраняем id и позицию скролла для восстановления после refreshView
+    m_selectedId = idx.data(Qt::UserRole).toString();
+    m_scrollPos = m_tree->verticalScrollBar()->value();
 
     // Только для пользовательских закладок — показываем меню
     if (!isUserBookmark(idx)) {
