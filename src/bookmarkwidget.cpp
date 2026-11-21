@@ -37,6 +37,7 @@ BookmarkWidget::BookmarkWidget(BookmarkManager *mgr, QWidget *p)
     connect(m_tree, &QTreeView::clicked, this, &BookmarkWidget::onClicked);
     connect(m_tree, &QTreeView::customContextMenuRequested, this, &BookmarkWidget::showContextMenu);
     connect(m_tree, &QTreeView::pressed, this, &BookmarkWidget::onTreePressed);
+    connect(m_mgr, &BookmarkManager::bookmarkAdded, this, [this](const Bookmark &bm) { onNewBookmarkAdded(bm.id); });
     connect(m_mgr, &BookmarkManager::bookmarksChanged, this, [this]() { refreshView(); });
 }
 
@@ -61,6 +62,12 @@ void BookmarkWidget::onTreePressed(const QModelIndex &idx)
     if (!idx.isValid()) return;
     m_selectedId = idx.data(Qt::UserRole).toString();
     m_scrollPos = m_tree->verticalScrollBar()->value();
+}
+
+void BookmarkWidget::onNewBookmarkAdded(const QString &id)
+{
+    m_selectedId = id;
+    m_scrollToBottom = true;
 }
 
 void BookmarkWidget::refreshView()
@@ -125,10 +132,16 @@ void BookmarkWidget::refreshView()
         }
     }
 
-    // Восстанавливаем скролл
-    if (!m_selectedId.isEmpty()) {
+    // Восстанавливаем скролл или прокручиваем вниз при добавлении новой закладки
+    if (m_scrollToBottom) {
+        m_tree->verticalScrollBar()->setValue(m_tree->verticalScrollBar()->maximum());
+        m_scrollToBottom = false;
+    } else if (!m_selectedId.isEmpty()) {
         m_tree->verticalScrollBar()->setValue(m_scrollPos);
     }
+
+    // Сбрасываем, чтобы не срабатывало повторно
+    m_selectedId.clear();
 }
 
 bool BookmarkWidget::isSeparator(const QModelIndex &idx) const

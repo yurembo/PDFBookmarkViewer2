@@ -25,6 +25,7 @@ private slots:
     void onClicked(const QModelIndex &idx);
     void showContextMenu(const QPoint &pos);
     void onTreePressed(const QModelIndex &idx);
+    void onNewBookmarkAdded(const QString &id);
 
 private:
     void refreshView();
@@ -36,6 +37,7 @@ private:
     QTreeView *m_tree;
     QString m_selectedId;
     int m_scrollPos = 0;
+    bool m_scrollToBottom = false;
 };
 
 #endif
