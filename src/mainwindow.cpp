@@ -150,7 +150,8 @@ void MainWindow::setupMenus()
     vMenu->addAction("◀ Предыдущая", this, &MainWindow::onPrevPage)->setShortcut(Qt::Key_Left);
     vMenu->addAction("▶ Следующая", this, &MainWindow::onNextPage)->setShortcut(Qt::Key_Right);
     vMenu->addSeparator();
-    vMenu->addAction("Увеличить", this, &MainWindow::onZoomIn)->setShortcut(Qt::CTRL | Qt::Key_Plus);
+    auto *zoomInAct = vMenu->addAction("Увеличить", this, &MainWindow::onZoomIn);
+    zoomInAct->setShortcuts({Qt::CTRL | Qt::Key_Plus, Qt::CTRL | Qt::Key_Equal});
     vMenu->addAction("Уменьшить", this, &MainWindow::onZoomOut)->setShortcut(Qt::CTRL | Qt::Key_Minus);
     vMenu->addAction("По высоте", this, &MainWindow::onZoomFit)->setShortcut(Qt::CTRL | Qt::Key_0);
     vMenu->addAction("100%", this, &MainWindow::onZoomActual)->setShortcut(Qt::CTRL | Qt::Key_1);
