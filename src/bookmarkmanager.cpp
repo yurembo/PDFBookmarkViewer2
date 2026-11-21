@@ -2,9 +2,9 @@
 #include "pdfrenderer.h"
 
 #include <QFile>
+#include <QJsonObject>
 #include <QJsonArray>
 #include <QJsonDocument>
-#include <QJsonObject>
 #include <QDir>
 #include <QFileInfo>
 #include <QDebug>
@@ -12,6 +12,33 @@
 BookmarkManager::BookmarkManager(QObject *parent)
     : QObject(parent)
 {}
+
+void BookmarkManager::readBookmarksFromPDF()
+{
+    m_pdf.clear();
+    m_user.clear();
+    m_all.clear();
+
+    if (!m_r || !m_r->isOpen()) {
+        loadUserBookmarks();
+        return;
+    }
+
+    Poppler::Document *doc = m_r->popplerDoc();
+    if (!doc) {
+        loadUserBookmarks();
+        return;
+    }
+
+    // Загружаем outline из PDF
+    QList<Poppler::OutlineItem> outline = doc->outline();
+    walkOutline(outline);
+
+    // Загружаем пользовательские закладки из JSON
+    loadUserBookmarks();
+
+    rebuildAll();
+}
 
 void BookmarkManager::loadUserBookmarks()
 {
@@ -56,8 +83,7 @@ void BookmarkManager::loadUserBookmarks()
         bm.zoom = o["zoom"].toDouble(1.0);
         bm.open = o["open"].toBool(true);
         bm.color = QColor(o["color"].toString("#0050b4"));
-        if (!bm.title.isEmpty())
-            m_user.append(bm);
+        m_user.append(bm);
     }
 
     qDebug() << "Loaded" << m_user.size() << "user bookmarks from" << path;
@@ -159,12 +185,39 @@ QString BookmarkManager::jsonFilePath() const
     return fi.dir().filePath(fi.baseName() + "_bookmarks.json");
 }
 
+void BookmarkManager::walkOutline(const QList<Poppler::OutlineItem> &items)
+{
+    for (const auto &item : items) {
+        Bookmark entry;
+        entry.title = item.name().trimmed();
+
+        auto dest = item.destination();
+        if (dest && dest->pageNumber() > 0) {
+            int pg = dest->pageNumber() - 1;
+            if (pg >= 0 && pg < m_r->pageCount())
+                entry.pageNumber = pg;
+        }
+
+        m_pdf.append(entry);
+
+        if (item.hasChildren())
+            walkOutline(item.children().toList());
+    }
+}
+
 void BookmarkManager::rebuildAll()
 {
-    m_all.clear();
+    m_all = m_pdf;
 
-    // Пользовательские закладки
+    // Разделитель "Закладки"
+    Bookmark separator;
+    separator.title = "Закладки";
+    separator.id = "---separator---";
+    separator.pageNumber = -1;
+    separator.zoom = 0.0;
+    separator.color = QColor(100, 100, 100);
+    m_all.append(separator);
+
     m_all.append(m_user);
-
     emit bookmarksChanged();
 }

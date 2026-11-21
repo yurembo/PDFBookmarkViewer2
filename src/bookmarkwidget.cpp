@@ -39,7 +39,7 @@ BookmarkWidget::BookmarkWidget(BookmarkManager *mgr, QWidget *p)
 
 void BookmarkWidget::onClicked(const QModelIndex &idx)
 {
-    if (!idx.isValid()) return;
+    if (!idx.isValid() || isSeparator(idx)) return;
 
     QString id = idx.data(Qt::UserRole).toString();
     if (id.isEmpty()) return;
@@ -59,21 +59,71 @@ void BookmarkWidget::refreshView()
     m_model.setColumnCount(1);
 
     const auto &all = m_mgr->allBookmarks();
+    const auto &pdf = m_mgr->pdfBookmarks();
 
     for (const auto &bm : all) {
         auto *item = new QStandardItem();
         item->setData(bm.id, Qt::UserRole);
-        item->setText(QString("%1  (стр. %2)").arg(bm.title).arg(bm.pageNumber + 1));
-        QFont font;
-        font.setBold(true);
-        item->setFont(font);
+
+        if (bm.id == "---separator---") {
+            // Разделитель "Закладки"
+            item->setText(bm.title);
+            QFont font;
+            font.setBold(true);
+            font.setPointSize(11);
+            item->setFont(font);
+            item->setForeground(QBrush(QColor(0, 120, 215)));
+            item->setEditable(false);
+            item->setData(0, Qt::UserRole + 1); // 0 = separator
+        } else {
+            // Проверяем, есть ли эта закладка в PDF outline
+            bool isPdf = false;
+            for (const auto &pb : pdf) {
+                if (pb.id == bm.id) { isPdf = true; break; }
+            }
+
+            if (isPdf) {
+                // Закладка из PDF outline — жирный шрифт
+                QString t = QString("%1  (стр. %2)").arg(bm.title).arg(bm.pageNumber + 1);
+                item->setText(t);
+                item->setData(1, Qt::UserRole + 1); // 1 = PDF bookmark
+                QFont font;
+                font.setBold(true);
+                item->setFont(font);
+            } else {
+                // Пользовательская закладка
+                QString t = QString("%1  (стр. %2)").arg(bm.title).arg(bm.pageNumber + 1);
+                item->setText(t);
+                item->setData(2, Qt::UserRole + 1); // 2 = user bookmark
+            }
+        }
+
+        m_model.appendRow(item);
     }
+}
+
+bool BookmarkWidget::isSeparator(const QModelIndex &idx) const
+{
+    if (!idx.isValid()) return true;
+    int type = idx.data(Qt::UserRole + 1).toInt();
+    return type == 0; // 0 = separator
+}
+
+bool BookmarkWidget::isUserBookmark(const QModelIndex &idx) const
+{
+    if (!idx.isValid()) return false;
+    int type = idx.data(Qt::UserRole + 1).toInt();
+    return type == 2; // 2 = user bookmark
 }
 
 void BookmarkWidget::showContextMenu(const QPoint &pos)
 {
     QModelIndex idx = m_tree->indexAt(pos);
-    if (!idx.isValid()) return;
+
+    // Только для пользовательских закладок — показываем меню
+    if (!isUserBookmark(idx)) {
+        return;
+    }
 
     QMenu menu(this);
 

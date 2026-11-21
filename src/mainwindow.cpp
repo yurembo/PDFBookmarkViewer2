@@ -34,7 +34,8 @@ MainWindow::MainWindow(QWidget *p)
         m_total = m_renderer->pageCount();
         // Подключаем QPdfDocument к QPdfView
         m_pageView->setDocument(m_renderer->native());
-        m_bmManager->loadUserBookmarks();
+        // Читаем outline из PDF + пользовательские закладки из JSON
+        m_bmManager->readBookmarksFromPDF();
         updateNav();
         m_page = 0;
         m_pageCombo->setCurrentIndex(0);
