@@ -55,6 +55,7 @@ double ContinuousView::zoom() const
 void ContinuousView::setZoom(double z)
 {
     if (z <= 0.1 || z > 5.0) return;
+    m_pdfView->setZoomMode(QPdfView::ZoomMode::Custom);
     m_pdfView->setZoomFactor(z);
     emit zoomChanged(z);
 }
