@@ -1,1 +1,1 @@
-# PDFBookmarkViewer2
+# PDFBookmarkViewer2 - разработано с помощью ИИ
