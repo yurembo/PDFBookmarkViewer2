@@ -6,9 +6,11 @@
 #include <QColor>
 #include <QList>
 #include <QUuid>
-#include <poppler/qt6/poppler-qt6.h>
 
 class PDFRenderer;
+namespace poppler {
+class toc_item;
+}
 
 inline QString makeUUID() {
     return QUuid::createUuid().toString().remove('{').remove('}');
@@ -75,11 +77,11 @@ signals:
     void bookmarkUpdated(const QString &id, const QString &title);
 
 private:
-    void walkOutline(const QList<Poppler::OutlineItem> &items);
+    void walkTOC(const poppler::toc_item *item, int depth = 0);
     void rebuildAll();
 
     PDFRenderer *m_r = nullptr;
-    QList<Bookmark> m_pdf;       // Закладки из PDF outline
+    QList<Bookmark> m_pdf;       // Закладки из PDF outline/TOC
     QList<Bookmark> m_user;      // Пользовательские закладки
     QList<Bookmark> m_all;       // Объединённый список
 };

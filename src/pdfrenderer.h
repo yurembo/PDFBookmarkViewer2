@@ -6,7 +6,8 @@
 #include <QSizeF>
 #include <QPdfDocument>
 #include <memory>
-#include <poppler/qt6/poppler-qt6.h>
+
+namespace poppler { class document; }
 
 class PDFRenderer : public QObject
 {
@@ -29,8 +30,8 @@ public:
 
     QSizeF pageSize(int pageNum) const;
 
-    // Возвращает Poppler::Document для чтения outline
-    Poppler::Document *popplerDoc() const { return m_popplerDoc; }
+    // Возвращает poppler::document для чтения metadata
+    poppler::document *popplerDoc() const { return m_popplerDoc.get(); }
 
     QPdfDocument *native() const { return m_doc.get(); }
 
@@ -43,7 +44,7 @@ private:
     void onStatusChanged(QPdfDocument::Status status);
 
     std::unique_ptr<QPdfDocument> m_doc;
-    Poppler::Document *m_popplerDoc = nullptr;
+    std::unique_ptr<poppler::document> m_popplerDoc;
     QString m_filePath;
     QPdfDocument::Status m_status = QPdfDocument::Status::Null;
 };

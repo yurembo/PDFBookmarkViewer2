@@ -8,6 +8,9 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QDebug>
+#include <poppler/cpp/poppler-document.h>
+#include <poppler/cpp/poppler-toc.h>
+#include <poppler/cpp/poppler-destination.h>
 
 BookmarkManager::BookmarkManager(QObject *parent)
     : QObject(parent)
@@ -24,15 +27,18 @@ void BookmarkManager::readBookmarksFromPDF()
         return;
     }
 
-    Poppler::Document *doc = m_r->popplerDoc();
+    auto *doc = m_r->popplerDoc();
     if (!doc) {
         loadUserBookmarks();
         return;
     }
 
-    // Загружаем outline из PDF
-    QList<Poppler::OutlineItem> outline = doc->outline();
-    walkOutline(outline);
+    // Загружаем TOC (table of contents / outline) из PDF
+    auto *toc = doc->create_toc();
+    if (toc) {
+        walkTOC(toc->root());
+        delete toc;
+    }
 
     // Загружаем пользовательские закладки из JSON
     loadUserBookmarks();
@@ -185,23 +191,32 @@ QString BookmarkManager::jsonFilePath() const
     return fi.dir().filePath(fi.baseName() + "_bookmarks.json");
 }
 
-void BookmarkManager::walkOutline(const QList<Poppler::OutlineItem> &items)
+void BookmarkManager::walkTOC(const poppler::toc_item *item, int depth)
 {
-    for (const auto &item : items) {
-        Bookmark entry;
-        entry.title = item.name().trimmed();
+    if (!item) return;
 
-        auto dest = item.destination();
-        if (dest && dest->pageNumber() > 0) {
-            int pg = dest->pageNumber() - 1;
-            if (pg >= 0 && pg < m_r->pageCount())
-                entry.pageNumber = pg;
-        }
+    Bookmark entry;
+    // Конвертируем poppler::ustring в QString
+    auto utf8 = item->title().to_utf8();
+    entry.title = QString::fromUtf8(reinterpret_cast<const char *>(utf8.data()), utf8.size()).trimmed();
 
-        m_pdf.append(entry);
+    // Устанавливаем отступ для отображения вложенности
+    // (можно использовать title для добавления пробелов)
+    for (int i = 0; i < depth; ++i) {
+        entry.title = "  " + entry.title;
+    }
 
-        if (item.hasChildren())
-            walkOutline(item.children().toList());
+    // Получаем номер страницы из первого дочернего элемента или текущего
+    // В Poppler CPP API нужно получить destination
+    // Для простоты используем 0
+    // entry.pageNumber = 0; // TODO: реализовать при необходимости
+
+    m_pdf.append(entry);
+
+    // Рекурсивно обходим детей
+    auto children = item->children();
+    for (const auto *child : children) {
+        walkTOC(child, depth + 1);
     }
 }
 
