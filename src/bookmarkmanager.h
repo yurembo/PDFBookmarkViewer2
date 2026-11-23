@@ -10,6 +10,7 @@
 class PDFRenderer;
 namespace poppler {
 class toc_item;
+class document;
 }
 
 inline QString makeUUID() {
@@ -77,7 +78,7 @@ signals:
     void bookmarkUpdated(const QString &id, const QString &title);
 
 private:
-    void walkTOC(const poppler::toc_item *item, int depth = 0);
+    void walkTOC(const poppler::toc_item *item, int depth, const poppler::document *doc);
     void rebuildAll();
 
     PDFRenderer *m_r = nullptr;

@@ -26,16 +26,16 @@ signals:
     void currentPageChanged(int p);
     void visiblePageChanged(int p);
     void zoomChanged(double z);
-    void bookmarkActivated(int p, double z);
 
 public slots:
     void zoomIn();
     void zoomOut();
     void zoomFit();
 
-private:
+private slots:
     void onCurrentPageChanged(int p);
 
+private:
     QPdfView *m_pdfView = nullptr;
     QPdfDocument *m_doc = nullptr;
 };

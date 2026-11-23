@@ -309,6 +309,8 @@ void MainWindow::onBookmarkActivated(int p, double z)
     m_pageView->setCurrentPage(p);
     m_pageCombo->setCurrentIndex(p);
     m_pageInfo->setText(QString("Стр: %1 / %2").arg(p + 1).arg(m_total));
+    // Прокручиваем view к странице
+    m_pageView->update();
 }
 
 void MainWindow::onZoomChanged(double z)

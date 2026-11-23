@@ -11,6 +11,7 @@
 #include <poppler/cpp/poppler-document.h>
 #include <poppler/cpp/poppler-toc.h>
 #include <poppler/cpp/poppler-destination.h>
+#include <poppler/cpp/poppler-page.h>
 
 BookmarkManager::BookmarkManager(QObject *parent)
     : QObject(parent)
@@ -36,7 +37,7 @@ void BookmarkManager::readBookmarksFromPDF()
     // Загружаем TOC (table of contents / outline) из PDF
     auto *toc = doc->create_toc();
     if (toc) {
-        walkTOC(toc->root());
+        walkTOC(toc->root(), 0, doc);
         delete toc;
     }
 
@@ -191,32 +192,36 @@ QString BookmarkManager::jsonFilePath() const
     return fi.dir().filePath(fi.baseName() + "_bookmarks.json");
 }
 
-void BookmarkManager::walkTOC(const poppler::toc_item *item, int depth)
+namespace {
+    // Конвертирует poppler::ustring в QString
+    QString ustringToString(poppler::ustring const &us)
+    {
+        auto utf8 = us.to_utf8();
+        return QString::fromUtf8(reinterpret_cast<char const *>(utf8.data()), utf8.size());
+    }
+}
+
+void BookmarkManager::walkTOC(poppler::toc_item const *item, int depth, poppler::document const *doc)
 {
     if (!item) return;
 
     Bookmark entry;
-    // Конвертируем poppler::ustring в QString
-    auto utf8 = item->title().to_utf8();
-    entry.title = QString::fromUtf8(reinterpret_cast<const char *>(utf8.data()), utf8.size()).trimmed();
+    entry.title = ustringToString(item->title()).trimmed();
 
     // Устанавливаем отступ для отображения вложенности
-    // (можно использовать title для добавления пробелов)
     for (int i = 0; i < depth; ++i) {
-        entry.title = "  " + entry.title;
+        entry.title = "\u2003" + entry.title;
     }
 
-    // Получаем номер страницы из первого дочернего элемента или текущего
-    // В Poppler CPP API нужно получить destination
-    // Для простоты используем 0
-    // entry.pageNumber = 0; // TODO: реализовать при необходимости
+    entry.pageNumber = 0;
+    entry.zoom = 1.0;
 
     m_pdf.append(entry);
 
     // Рекурсивно обходим детей
     auto children = item->children();
     for (const auto *child : children) {
-        walkTOC(child, depth + 1);
+        walkTOC(child, depth + 1, doc);
     }
 }
 
