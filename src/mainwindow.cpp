@@ -17,6 +17,7 @@
 #include <QFileInfo>
 #include <QInputDialog>
 #include <QLineEdit>
+#include <QDebug>
 
 MainWindow::MainWindow(QWidget *p)
     : QMainWindow(p)
@@ -129,19 +130,19 @@ void MainWindow::setupMenus()
     auto *fMenu = menuBar()->addMenu("&Файл");
 
     auto *openAct = new QAction("☐ Открыть...", this);
-    openAct->setShortcut(Qt::CTRL | Qt::Key_O);
+    openAct->setShortcut(Qt::META | Qt::Key_O);
     connect(openAct, &QAction::triggered, this, &MainWindow::onOpenFile);
     fMenu->addAction(openAct);
 
     auto *closeAct = new QAction("✕ Закрыть", this);
-    closeAct->setShortcut(Qt::CTRL | Qt::Key_W);
+    closeAct->setShortcut(Qt::META | Qt::Key_W);
     connect(closeAct, &QAction::triggered, this, &MainWindow::onCloseDocument);
     fMenu->addAction(closeAct);
 
     fMenu->addSeparator();
 
     auto *quitAct = new QAction("Выход", this);
-    quitAct->setShortcut(Qt::CTRL | Qt::Key_Q);
+    quitAct->setShortcut(Qt::META | Qt::Key_Q);
     connect(quitAct, &QAction::triggered, this, &MainWindow::onQuit);
     fMenu->addAction(quitAct);
 
@@ -152,10 +153,10 @@ void MainWindow::setupMenus()
     vMenu->addAction("▶ Следующая", this, &MainWindow::onNextPage)->setShortcut(Qt::Key_Right);
     vMenu->addSeparator();
     auto *zoomInAct = vMenu->addAction("Увеличить", this, &MainWindow::onZoomIn);
-    zoomInAct->setShortcuts({Qt::CTRL | Qt::Key_Plus, Qt::CTRL | Qt::Key_Equal});
-    vMenu->addAction("Уменьшить", this, &MainWindow::onZoomOut)->setShortcut(Qt::CTRL | Qt::Key_Minus);
-    vMenu->addAction("По высоте", this, &MainWindow::onZoomFit)->setShortcut(Qt::CTRL | Qt::Key_0);
-    vMenu->addAction("100%", this, &MainWindow::onZoomActual)->setShortcut(Qt::CTRL | Qt::Key_1);
+    zoomInAct->setShortcuts({Qt::META | Qt::Key_Plus, Qt::META | Qt::Key_Equal});
+    vMenu->addAction("Уменьшить", this, &MainWindow::onZoomOut)->setShortcut(Qt::META | Qt::Key_Minus);
+    vMenu->addAction("По высоте", this, &MainWindow::onZoomFit)->setShortcut(Qt::META | Qt::Key_0);
+    vMenu->addAction("100%", this, &MainWindow::onZoomActual)->setShortcut(Qt::META | Qt::Key_1);
     vMenu->addSeparator();
 
     auto *toggleBm = new QAction("Панель закладок", this);
@@ -168,7 +169,7 @@ void MainWindow::setupMenus()
     auto *bMenu = menuBar()->addMenu("&Закладки");
 
     auto *addBm = new QAction("+ Добавить закладку", this);
-    addBm->setShortcut(Qt::CTRL | Qt::Key_D);
+    addBm->setShortcut(Qt::META | Qt::Key_D);
     connect(addBm, &QAction::triggered, this, &MainWindow::onAddBookmark);
     bMenu->addAction(addBm);
 
@@ -221,12 +222,17 @@ int MainWindow::currentPage() const
 
 void MainWindow::onOpenFile()
 {
-    QString fp = QFileDialog::getOpenFileName(this, "Открыть PDF", QString(), "PDF (*.pdf)");
-    if (fp.isEmpty()) return;
-
-    // Отключаем навигацию во время загрузки
+    
+    QFileDialog dialog(this, "Открыть PDF");
+    dialog.setFileMode(QFileDialog::ExistingFile);
+    dialog.setNameFilter("PDF (*.pdf)");
+    dialog.setOption(QFileDialog::DontUseNativeDialog, true);
+    dialog.resize(800, 600);
+    int r = dialog.exec();
+    auto files = dialog.selectedFiles();
+    if (files.isEmpty()) return;
+    QString fp = files[0];
     m_pageCombo->setEnabled(false);
-
     if (!m_renderer->loadDocument(fp))
         QMessageBox::critical(this, "Ошибка", "Не удалось открыть PDF");
 }
