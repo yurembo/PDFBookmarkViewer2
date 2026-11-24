@@ -7,7 +7,7 @@
 #include <QPdfDocument>
 #include <memory>
 
-namespace poppler { class document; }
+struct PopplerDocument;
 
 class PDFRenderer : public QObject
 {
@@ -30,8 +30,8 @@ public:
 
     QSizeF pageSize(int pageNum) const;
 
-    // Возвращает poppler::document для чтения metadata
-    poppler::document *popplerDoc() const { return m_popplerDoc.get(); }
+    // Возвращает необработанный указатель на Poppler::Document
+    PopplerDocument *popplerDoc() const { return m_popplerDoc; }
 
     QPdfDocument *native() const { return m_doc.get(); }
 
@@ -44,7 +44,7 @@ private:
     void onStatusChanged(QPdfDocument::Status status);
 
     std::unique_ptr<QPdfDocument> m_doc;
-    std::unique_ptr<poppler::document> m_popplerDoc;
+    PopplerDocument *m_popplerDoc = nullptr;
     QString m_filePath;
     QPdfDocument::Status m_status = QPdfDocument::Status::Null;
 };

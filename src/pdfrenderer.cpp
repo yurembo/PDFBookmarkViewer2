@@ -3,7 +3,6 @@
 #include <QFileInfo>
 #include <poppler/cpp/poppler-document.h>
 #include <poppler/cpp/poppler-toc.h>
-#include <poppler/cpp/poppler-destination.h>
 
 PDFRenderer::PDFRenderer(QObject *parent)
     : QObject(parent)
@@ -19,16 +18,16 @@ bool PDFRenderer::loadDocument(const QString &filePath)
     std::string filePathStr = filePath.toUtf8().constData();
 
     // Загружаем Poppler для чтения metadata
-    auto popplerDoc = poppler::document::load_from_file(filePathStr);
-    if (!popplerDoc || popplerDoc->is_locked()) {
-        if (popplerDoc && popplerDoc->is_locked()) {
+    auto doc = poppler::document::load_from_file(filePathStr);
+    if (!doc || doc->is_locked()) {
+        if (doc && doc->is_locked()) {
             qWarning() << "Password-protected PDF";
         } else {
             qWarning() << "Failed to load PDF:" << filePath;
         }
         return false;
     }
-    m_popplerDoc.reset(popplerDoc);
+    m_popplerDoc = doc.get();
 
     // Загружаем QPdfDocument для рендеринга (асинхронно)
     m_doc = std::make_unique<QPdfDocument>();
@@ -40,7 +39,7 @@ bool PDFRenderer::loadDocument(const QString &filePath)
     if (err != QPdfDocument::Error::None) {
         qWarning() << "QPdfDocument load error:" << filePath << err;
         m_doc.reset();
-        m_popplerDoc.reset();
+        m_popplerDoc = nullptr;
         return false;
     }
     return true;
@@ -53,7 +52,7 @@ void PDFRenderer::closeDocument()
         m_doc->close();
     }
     m_doc.reset();
-    m_popplerDoc.reset();
+    m_popplerDoc = nullptr;
     m_filePath.clear();
     m_status = QPdfDocument::Status::Null;
     emit documentClosed();
